@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>약먹었나?!</title>
+    <style>
+        /* ============================================
+           CSS 기본 설정: 모든 요소의 여백과 크기 계산 방식을 통일해요
+           box-sizing: border-box → 테두리와 패딩을 너비에 포함시켜요
+        ============================================ */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent; /* 모바일에서 클릭 시 파란 테두리 제거 */
+        }
+
+        /* CSS 변수: 색상을 한 곳에서 관리해요 (나중에 테마 바꾸기 쉬워요!) */
+        :root {
+            --primary: #7c3aed;         /* 보라색 - 주요 버튼 색 */
+            --primary-light: #ede9fe;   /* 연한 보라색 - 배경에 쓰는 연한 버전 */
+            --success: #16a34a;         /* 초록색 - 완료 표시 */
+            --success-light: #dcfce7;   /* 연한 초록색 */
+            --danger: #dc2626;          /* 빨간색 - 삭제 버튼 */
+            --text: #1e293b;            /* 기본 글자색 (거의 검정) */
+            --text-muted: #94a3b8;      /* 흐린 글자색 (설명 텍스트용) */
+            --bg: #f1f5f9;              /* 페이지 배경색 */
+            --card: #ffffff;            /* 카드 배경색 (하얀색) */
+            --border: #e2e8f0;          /* 테두리 색 */
+        }
+
+        /* 페이지 전체 배경 스타일 */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', sans-serif;
+            background: var(--bg);
+            min-height: 100vh;     /* 화면 전체 높이 채우기 */
+            padding: 16px;
+            color: var(--text);
+        }
+
+        /* 최대 너비를 480px로 제한하고 가운데 정렬 (모바일 앱 느낌) */
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+            padding-bottom: 32px;
+        }
+
+        /* =====================
+           헤더 (제목 + 날짜)
+        ===================== */
+        header {
+            text-align: center;
+            padding: 28px 0 16px;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            font-weight: 900;
+            color: var(--primary);
+            letter-spacing: -1px;
+        }
+
+        .today-date {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 5px;
+            font-weight: 500;
+        }
+
+        /* =====================
+           진행 상황 카드
+           (오늘 몇 개 먹었는지 막대그래프로 보여줘요)
+        ===================== */
+        .progress-card {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 16px 20px;
+            margin-bottom: 14px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;  /* 레이블과 숫자를 양쪽에 배치 */
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .progress-label {
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .progress-count {
+            color: var(--primary);
+            font-weight: 800;
+            font-size: 0.9rem;
+        }
+
+        /* 막대그래프 트랙 (회색 배경) */
+        .progress-track {
+            background: var(--border);
+            border-radius: 99px;
+            height: 8px;
+            overflow: hidden;
+        }
+
+        /* 막대그래프 채워지는 부분 (보라색) */
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), #a78bfa);
+            border-radius: 99px;
+            transition: width 0.4s ease;  /* 채워질 때 부드럽게 애니메이션 */
+        }
+
+        /* =====================
+           약 카드
+        ===================== */
+        .med-card {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            border: 2px solid transparent;  /* 기본은 투명한 테두리 */
+            transition: border-color 0.3s;
+        }
+
+        /* 모든 복약을 완료했을 때 카드 테두리를 초록색으로 */
+        .med-card.all-checked {
+            border-color: var(--success);
+            background: #f0fdf4;  /* 아주 연한 초록 배경 */
+        }
+
+        /* 카드 맨 위 줄: 약 이름 + 삭제 버튼 */
+        .med-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .med-name-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            min-width: 0;  /* 텍스트가 넘치면 잘리도록 */
+        }
+
+        .med-name {
+            font-weight: 700;
+            font-size: 1.05rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;  /* 너무 길면 "..."으로 표시 */
+        }
+
+        /* 복용 방식을 알려주는 작은 배지 (예: "아침·저녁 식후") */
+        .med-badge {
+            font-size: 0.72rem;
+            color: var(--primary);
+            background: var(--primary-light);
+            padding: 2px 8px;
+            border-radius: 99px;
+            font-weight: 600;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        /* 메모 표시 */
+        .med-memo {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            padding-left: 4px;
+        }
+
+        /* 삭제 버튼 */
+        .del-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1.1rem;
+            padding: 4px 6px;
+            border-radius: 8px;
+            transition: color 0.2s, background 0.2s;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .del-btn:hover {
+            color: var(--danger);
+            background: #fff1f2;
+        }
+
+        /* =====================
+           체크 아이템 (시간대별 복약 체크박스)
+        ===================== */
+        .check-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        /* 각 복약 시간 아이템 */
+        .check-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: var(--bg);
+            cursor: pointer;          /* 마우스 커서를 손가락 모양으로 */
+            transition: background 0.15s;
+            user-select: none;        /* 클릭해도 텍스트가 선택되지 않게 */
+        }
+
+        .check-item:active {
+            transform: scale(0.98);   /* 누를 때 살짝 작아지는 효과 */
+        }
+
+        /* 완료된 아이템: 초록 배경 */
+        .check-item.done {
+            background: var(--success-light);
+        }
+
+        /* 완료된 아이템: 텍스트에 취소선 */
+        .check-item.done .check-label {
+            text-decoration: line-through;
+            color: var(--text-muted);
+        }
+
+        /* 체크박스 모양 (네모 박스) */
+        .check-box {
+            width: 26px;
+            height: 26px;
+            border-radius: 8px;
+            border: 2px solid var(--border);
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: white;
+        }
+
+        /* 완료된 체크박스: 초록색으로 채우기 */
+        .check-item.done .check-box {
+            background: var(--success);
+            border-color: var(--success);
+        }
+
+        .check-label {
+            font-size: 0.95rem;
+            font-weight: 500;
+            flex: 1;
+        }
+
+        /* =====================
+           빈 상태 (약이 없을 때)
+        ===================== */
+        .empty-state {
+            text-align: center;
+            padding: 52px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state .empty-icon {
+            font-size: 3.5rem;
+            margin-bottom: 14px;
+            display: block;
+        }
+
+        .empty-state p {
+            font-size: 0.95rem;
+            line-height: 1.7;
+        }
+
+        /* =====================
+           모두 완료 배너 (🎉)
+        ===================== */
+        .all-done-banner {
+            background: linear-gradient(135deg, #16a34a, #15803d);
+            color: white;
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 14px;
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);  /* 통통 튀는 효과 */
+        }
+
+        .all-done-banner h2 {
+            font-size: 1.2rem;
+            margin-bottom: 4px;
+        }
+
+        .all-done-banner p {
+            font-size: 0.85rem;
+            opacity: 0.9;
+        }
+
+        /* 통통 튀는 애니메이션 정의 */
+        @keyframes popIn {
+            from { transform: scale(0.85); opacity: 0; }
+            to   { transform: scale(1);    opacity: 1; }
+        }
+
+        /* =====================
+           약 추가 버튼
+        ===================== */
+        .add-btn {
+            width: 100%;
+            padding: 15px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 14px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 6px;
+            transition: background 0.2s, transform 0.1s;
+            box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
+            font-family: inherit;
+        }
+
+        .add-btn:hover { background: #6d28d9; }
+        .add-btn:active { transform: scale(0.98); }
+
+        /* =====================
+           모달 (약 추가 팝업)
+           화면 아래에서 올라오는 "바텀시트" 스타일이에요
+        ===================== */
+
+        /* 어두운 배경 오버레이 */
+        .modal-overlay {
+            display: none;              /* 기본은 숨김 */
+            position: fixed;            /* 화면에 고정 (스크롤해도 따라다님) */
+            inset: 0;                   /* 상하좌우 0 = 화면 전체 덮기 */
+            background: rgba(0, 0, 0, 0.5);  /* 반투명 검정 */
+            z-index: 100;               /* 다른 요소들 위에 표시 */
+            padding: 20px;
+            align-items: flex-end;      /* 모달을 화면 아래에 붙이기 */
+            justify-content: center;
+        }
+
+        /* open 클래스가 추가되면 보이게 */
+        .modal-overlay.open {
+            display: flex;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+        }
+
+        /* 실제 모달 박스 */
+        .modal {
+            background: white;
+            border-radius: 24px 24px 16px 16px;  /* 위쪽만 둥글게 */
+            padding: 24px 20px 20px;
+            width: 100%;
+            max-width: 480px;
+            max-height: 88vh;           /* 화면 높이의 88%까지만 */
+            overflow-y: auto;           /* 넘치면 스크롤 */
+            animation: slideUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+        }
+
+        /* 아래에서 위로 슬라이드 애니메이션 */
+        @keyframes slideUp {
+            from { transform: translateY(50px); opacity: 0.5; }
+            to   { transform: translateY(0);    opacity: 1; }
+        }
+
+        .modal-title {
+            font-size: 1.15rem;
+            font-weight: 800;
+            text-align: center;
+            margin-bottom: 20px;
+            color: var(--text);
+        }
+
+        /* =====================
+           폼 스타일
+        ===================== */
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 700;
+            font-size: 0.88rem;
+            margin-bottom: 8px;
+            color: var(--text);
+        }
+
+        .form-group label .hint {
+            font-weight: 400;
+            color: var(--text-muted);
+            font-size: 0.82rem;
+        }
+
+        /* 텍스트 입력창 */
+        .form-group input[type="text"] {
+            width: 100%;
+            padding: 12px 14px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 1rem;
+            outline: none;              /* 기본 파란 테두리 제거 */
+            transition: border-color 0.2s;
+            font-family: inherit;
+            color: var(--text);
+        }
+
+        /* 입력창에 포커스(클릭)하면 보라색 테두리 */
+        .form-group input[type="text"]:focus {
+            border-color: var(--primary);
+        }
+
+        /* =====================
+           탭 (시간대 선택 / 간격 선택)
+        ===================== */
+        .tabs {
+            display: flex;
+            gap: 4px;
+            background: var(--bg);
+            padding: 4px;
+            border-radius: 10px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 9px 8px;
+            background: none;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            color: var(--text-muted);
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        /* 선택된 탭: 하얀 배경 + 그림자 */
+        .tab.active {
+            background: white;
+            color: var(--primary);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 탭 내용: 기본은 숨김 */
+        .tab-content {
+            display: none;
+            padding-top: 14px;
+        }
+
+        /* active 클래스가 있을 때만 보임 */
+        .tab-content.active {
+            display: block;
+        }
+
+        /* =====================
+           옵션 버튼들 (아침, 점심, 저녁 같은 선택 버튼)
+        ===================== */
+        .option-group {
+            display: flex;
+            flex-wrap: wrap;  /* 버튼이 많으면 다음 줄로 */
+            gap: 8px;
+        }
+
+        .option-btn {
+            padding: 8px 15px;
+            border: 2px solid var(--border);
+            border-radius: 99px;        /* 완전히 둥근 알약 모양 */
+            background: white;
+            font-size: 0.88rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+            font-family: inherit;
+            color: var(--text);
+        }
+
+        /* 선택된 옵션 버튼: 보라색 테두리와 배경 */
+        .option-btn.selected {
+            background: var(--primary-light);
+            border-color: var(--primary);
+            color: var(--primary);
+            font-weight: 700;
+        }
+
+        .option-btn:active { transform: scale(0.96); }
+
+        /* =====================
+           폼 제출 버튼들
+        ===================== */
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn-cancel {
+            flex: 1;
+            padding: 13px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            background: white;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            color: var(--text-muted);
+            font-family: inherit;
+            transition: background 0.2s;
+        }
+
+        .btn-cancel:hover { background: var(--bg); }
+
+        .btn-submit {
+            flex: 2;
+            padding: 13px;
+            border: none;
+            border-radius: 12px;
+            background: var(--primary);
+            color: white;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 0.2s;
+        }
+
+        .btn-submit:hover { background: #6d28d9; }
+
+        /* 구분선 */
+        .divider {
+            height: 1px;
+            background: var(--border);
+            margin: 14px 0;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- =====================
+         헤더: 제목과 오늘 날짜
+    ===================== -->
+    <header>
+        <h1>💊 약먹었나?!</h1>
+        <!-- id="today-date"는 JavaScript에서 이 요소를 찾기 위한 이름표예요 -->
+        <p class="today-date" id="today-date"></p>
+    </header>
+
+    <!-- =====================
+         진행 상황 카드
+         약이 있을 때만 보여줘요 (JavaScript로 제어)
+    ===================== -->
+    <div class="progress-card" id="progress-card" style="display:none">
+        <div class="progress-header">
+            <span class="progress-label">오늘의 복약 현황</span>
+            <span class="progress-count" id="progress-count">0 / 0</span>
+        </div>
+        <!-- 막대그래프: fill의 width를 JavaScript로 조절해요 -->
+        <div class="progress-track">
+            <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+        </div>
+    </div>
+
+    <!-- =====================
+         모두 완료 배너
+         모든 약을 다 먹었을 때만 보여줘요
+    ===================== -->
+    <div class="all-done-banner" id="all-done-banner" style="display:none">
+        <h2>🎉 모든 약을 다 드셨어요!</h2>
+        <p>오늘도 건강한 하루 되세요!</p>
+    </div>
+
+    <!-- =====================
+         약 목록
+         JavaScript가 여기에 카드들을 동적으로 추가해요
+    ===================== -->
+    <div id="med-list"></div>
+
+    <!-- =====================
+         빈 상태 메시지
+         약이 없을 때 보여줘요
+    ===================== -->
+    <div class="empty-state" id="empty-state">
+        <span class="empty-icon">🫙</span>
+        <p>아직 등록된 약이 없어요.<br>복용 중인 약을 추가해보세요!</p>
+    </div>
+
+    <!-- =====================
+         약 추가 버튼
+    ===================== -->
+    <button class="add-btn" id="open-modal-btn">＋ 약 추가하기</button>
+
+</div>
+
+<!-- =====================
+     모달 (약 추가 팝업창)
+     .modal-overlay: 어두운 배경
+     .modal: 실제 팝업 내용
+===================== -->
+<div class="modal-overlay" id="modal-overlay">
+    <div class="modal" id="modal-box">
+        <h2 class="modal-title">💊 약 추가하기</h2>
+
+        <!-- onsubmit은 제출할 때 실행할 함수를 지정해요. return false로 페이지 새로고침을 막아요 -->
+        <form id="add-med-form">
+
+            <!-- 약 이름 입력 -->
+            <div class="form-group">
+                <label>약 이름 *</label>
+                <input type="text" id="med-name"
+                       placeholder="예) 타이레놀, 오메프라졸, 메트포르민"
+                       autocomplete="off" required>
+            </div>
+
+            <!-- 복용 방식 탭 선택 -->
+            <div class="form-group">
+                <label>복용 방식</label>
+                <!-- data-tab 속성으로 어떤 탭인지 구분해요 -->
+                <div class="tabs">
+                    <button type="button" class="tab active" data-tab="time">🕐 시간대 선택</button>
+                    <button type="button" class="tab" data-tab="interval">⏱️ 간격 선택</button>
+                </div>
+            </div>
+
+            <!-- ===== [탭 1] 시간대 선택 ===== -->
+            <div id="tab-time" class="tab-content active">
+
+                <!-- 복용 시간대 (여러 개 선택 가능) -->
+                <div class="form-group">
+                    <label>복용 시간 <span class="hint">(여러 개 선택 가능)</span></label>
+                    <div class="option-group" id="time-options">
+                        <!-- data-value는 이 버튼의 실제 값이에요 -->
+                        <button type="button" class="option-btn" data-value="아침">☀️ 아침</button>
+                        <button type="button" class="option-btn" data-value="점심">🌤️ 점심</button>
+                        <button type="button" class="option-btn" data-value="저녁">🌙 저녁</button>
+                        <button type="button" class="option-btn" data-value="자기 전">🛌 자기 전</button>
+                    </div>
+                </div>
+
+                <!-- 식사 기준 (하나만 선택) -->
+                <div class="form-group">
+                    <label>식사 기준</label>
+                    <div class="option-group" id="meal-options">
+                        <button type="button" class="option-btn" data-value="식전">식전</button>
+                        <button type="button" class="option-btn" data-value="식후">식후</button>
+                        <button type="button" class="option-btn selected" data-value="상관없음">상관없음</button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- ===== [탭 2] 간격 선택 ===== -->
+            <div id="tab-interval" class="tab-content">
+                <div class="form-group">
+                    <label>복용 간격 <span class="hint">(하루 복용 횟수가 자동 계산돼요)</span></label>
+                    <div class="option-group" id="interval-options">
+                        <button type="button" class="option-btn" data-value="4">매 4시간<br><small style="opacity:.7">(하루 6회)</small></button>
+                        <button type="button" class="option-btn selected" data-value="6">매 6시간<br><small style="opacity:.7">(하루 4회)</small></button>
+                        <button type="button" class="option-btn" data-value="8">매 8시간<br><small style="opacity:.7">(하루 3회)</small></button>
+                        <button type="button" class="option-btn" data-value="12">매 12시간<br><small style="opacity:.7">(하루 2회)</small></button>
+                        <button type="button" class="option-btn" data-value="24">하루 1회<br><small style="opacity:.7">(1일 1회)</small></button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- 메모 (선택사항) -->
+            <div class="form-group">
+                <label>메모 <span class="hint">(선택사항)</span></label>
+                <input type="text" id="med-memo"
+                       placeholder="예) 2정, 물 충분히, 공복 금지"
+                       autocomplete="off">
+            </div>
+
+            <!-- 취소 / 추가 버튼 -->
+            <div class="form-actions">
+                <button type="button" class="btn-cancel" id="cancel-btn">취소</button>
+                <button type="submit" class="btn-submit">추가하기</button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+<script>
+    // =====================================================
+    // [1] 전역 상태 관리
+    // state 객체 하나에 모든 데이터를 모아서 관리해요.
+    // 마치 앱의 "두뇌" 역할을 하는 곳이에요!
+    // =====================================================
+    let state = {
+        medications: [],  // 등록된 약 목록 (배열)
+        checks: {},       // 오늘의 체크 상태 { 약ID: { "슬롯이름": true/false } }
+        lastDate: ''      // 마지막으로 사용한 날짜 (자정이 지나면 체크 초기화용)
+    };
+
+    // =====================================================
+    // [2] 데이터 저장/불러오기 (localStorage 사용)
+    //
+    // localStorage: 브라우저에 내장된 작은 저장소예요.
+    // 브라우저를 닫았다 열어도 데이터가 남아있어요!
+    // key-value 형태로 저장하고, 값은 꼭 문자열이어야 해요.
+    // JSON.stringify: 자바스크립트 객체 → 문자열 변환
+    // JSON.parse:     문자열 → 자바스크립트 객체 변환
+    // =====================================================
+
+    // 저장하기: 현재 state를 localStorage에 문자열로 저장
+    function saveState() {
+        localStorage.setItem('yakmeog-v1', JSON.stringify(state));
+    }
+
+    // 불러오기: localStorage에서 데이터를 꺼내 state에 넣기
+    function loadState() {
+        const saved = localStorage.getItem('yakmeog-v1');
+        if (saved) {
+            // 저장된 데이터가 있으면 파싱(문자열→객체)해서 state에 넣어요
+            state = JSON.parse(saved);
+        }
+        checkDayReset();  // 날짜가 바뀌었으면 체크 초기화
+    }
+
+    // =====================================================
+    // [3] 날짜 관련 함수들
+    // =====================================================
+
+    // 오늘 날짜를 "2024-01-15" 형식으로 반환 (비교용)
+    function getTodayKey() {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0'); // 1월 → "01"
+        const day = String(d.getDate()).padStart(2, '0');     // 5일 → "05"
+        return `${y}-${m}-${day}`;
+    }
+
+    // 오늘 날짜를 예쁘게 표시 (예: "2024년 1월 15일 월요일")
+    function getTodayDisplay() {
+        return new Date().toLocaleDateString('ko-KR', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            weekday: 'short'
+        });
+    }
+
+    // 날짜가 바뀌면 체크 상태를 초기화해요 (자정 넘어가면 리셋)
+    function checkDayReset() {
+        const today = getTodayKey();
+        if (state.lastDate !== today) {
+            state.checks = {};       // 체크 상태 비우기
+            state.lastDate = today;  // 날짜 업데이트
+            saveState();
+        }
+    }
+
+    // =====================================================
+    // [4] 복약 슬롯(칸) 계산
+    //
+    // 각 약마다 오늘 몇 번 먹어야 하는지 계산해요.
+    // 예) 아침·저녁 식후 → ["아침 식후", "저녁 식후"]
+    // 예) 매 8시간 → ["1회차", "2회차", "3회차"]
+    // =====================================================
+    function getSlots(med) {
+        const slots = [];
+
+        if (med.scheduleType === 'time') {
+            // 시간대별 방식: 선택한 시간대마다 슬롯 하나씩 만들어요
+            med.times.forEach(time => {
+                if (time === '자기 전') {
+                    // "자기 전"은 식사와 무관하므로 그냥 그대로 사용
+                    slots.push('자기 전');
+                } else {
+                    // "상관없음"이면 시간대만, 아니면 "아침 식후" 형태로 합치기
+                    const meal = med.mealRelation === '상관없음' ? '' : ` ${med.mealRelation}`;
+                    slots.push(`${time}${meal}`);
+                }
+            });
+        } else {
+            // 간격 방식: 24 ÷ 간격 = 하루 복용 횟수
+            const count = Math.round(24 / med.intervalHours);
+            for (let i = 1; i <= count; i++) {
+                slots.push(`${i}회차`);  // "1회차", "2회차", ...
+            }
+        }
+
+        return slots;
+    }
+
+    // =====================================================
+    // [5] 진행 상황 계산
+    // 전체 복용 횟수와 완료한 횟수를 반환해요
+    // =====================================================
+    function getProgress() {
+        let total = 0;  // 오늘 먹어야 할 총 횟수
+        let done  = 0;  // 오늘 실제로 먹은 횟수
+
+        state.medications.forEach(med => {
+            const slots = getSlots(med);
+            total += slots.length;
+
+            // 이 약의 체크 상태 가져오기 (없으면 빈 객체 {})
+            const medChecks = state.checks[med.id] || {};
+            slots.forEach(slot => {
+                if (medChecks[slot] === true) done++;
+            });
+        });
+
+        return { total, done };
+    }
+
+    // =====================================================
+    // [6] 화면 그리기 (렌더링)
+    //
+    // 데이터가 바뀔 때마다 화면을 새로 그려요.
+    // innerHTML을 직접 바꾸는 방식 = "명령형 렌더링"이라고 해요.
+    // =====================================================
+
+    // 모든 화면 요소를 한 번에 업데이트
+    function renderAll() {
+        renderDate();
+        renderMedList();
+        renderProgress();
+    }
+
+    // 헤더의 날짜 텍스트 업데이트
+    function renderDate() {
+        document.getElementById('today-date').textContent = getTodayDisplay();
+    }
+
+    // 약 카드 목록 그리기
+    function renderMedList() {
+        const listEl   = document.getElementById('med-list');
+        const emptyEl  = document.getElementById('empty-state');
+
+        // 약이 없으면 빈 상태 메시지만 보여줘요
+        if (state.medications.length === 0) {
+            listEl.innerHTML = '';
+            emptyEl.style.display = 'block';
+            return;
+        }
+        emptyEl.style.display = 'none';
+
+        // Array.map()으로 각 약의 HTML을 만들고, join('')으로 하나로 합쳐요
+        listEl.innerHTML = state.medications.map(med => {
+            const slots      = getSlots(med);
+            const medChecks  = state.checks[med.id] || {};
+            // Array.every()는 모든 요소가 조건을 만족하면 true
+            const allChecked = slots.length > 0 && slots.every(s => medChecks[s]);
+
+            // 복용 방식 배지 텍스트 만들기
+            let badge = '';
+            if (med.scheduleType === 'time') {
+                badge = med.times.join('·');
+                if (med.mealRelation !== '상관없음') badge += ` ${med.mealRelation}`;
+            } else {
+                badge = `매 ${med.intervalHours}시간`;
+            }
+
+            // 각 복용 시간 슬롯의 HTML 만들기
+            const checkItemsHtml = slots.map(slot => {
+                const isChecked = !!medChecks[slot];  // !! → boolean으로 변환 (undefined → false)
+                // onclick으로 클릭 시 toggleCheck 함수를 호출해요
+                return `
+                    <div class="check-item ${isChecked ? 'done' : ''}"
+                         onclick="toggleCheck('${med.id}', '${slot}')">
+                        <div class="check-box">${isChecked ? '✓' : ''}</div>
+                        <span class="check-label">${slot}</span>
+                    </div>
+                `;
+            }).join('');
+
+            // 약 카드 전체 HTML 반환
+            return `
+                <div class="med-card ${allChecked ? 'all-checked' : ''}">
+                    <div class="med-header">
+                        <div class="med-name-wrap">
+                            <span class="med-name">💊 ${escapeHtml(med.name)}</span>
+                            <span class="med-badge">${escapeHtml(badge)}</span>
+                        </div>
+                        <button class="del-btn" onclick="deleteMed('${med.id}')" title="삭제">✕</button>
+                    </div>
+                    ${med.memo ? `<p class="med-memo">📝 ${escapeHtml(med.memo)}</p>` : ''}
+                    <div class="check-list">
+                        ${checkItemsHtml}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // 진행 상황 막대그래프와 카운터 업데이트
+    function renderProgress() {
+        const { total, done } = getProgress();
+        const progressCard    = document.getElementById('progress-card');
+        const allDoneBanner   = document.getElementById('all-done-banner');
+
+        // 약이 없으면 진행 상황 카드를 숨겨요
+        if (total === 0) {
+            progressCard.style.display  = 'none';
+            allDoneBanner.style.display = 'none';
+            return;
+        }
+
+        progressCard.style.display = 'block';
+
+        // 퍼센트 계산: (완료한 수 / 전체 수) × 100
+        const percent = Math.round((done / total) * 100);
+        document.getElementById('progress-fill').style.width  = `${percent}%`;
+        document.getElementById('progress-count').textContent = `${done} / ${total}`;
+
+        // 모두 완료했을 때 축하 배너 표시
+        allDoneBanner.style.display = (done === total && total > 0) ? 'block' : 'none';
+    }
+
+    // =====================================================
+    // [7] 체크박스 토글
+    // 클릭하면 체크/해제를 번갈아 실행해요
+    // =====================================================
+    function toggleCheck(medId, slot) {
+        // 이 약의 체크 상태 객체가 없으면 빈 객체로 만들어요
+        if (!state.checks[medId]) {
+            state.checks[medId] = {};
+        }
+
+        // 현재 값을 반전: true → false, false/undefined → true
+        state.checks[medId][slot] = !state.checks[medId][slot];
+
+        saveState();   // 바뀐 상태 저장
+        renderAll();   // 화면 다시 그리기
+    }
+
+    // =====================================================
+    // [8] 약 삭제
+    // =====================================================
+    function deleteMed(medId) {
+        if (!confirm('이 약을 목록에서 삭제할까요?')) return;
+
+        // Array.filter()로 해당 id 빼고 나머지만 남겨요
+        state.medications = state.medications.filter(m => m.id !== medId);
+
+        // 체크 상태에서도 삭제 (delete 키워드로 객체의 속성 삭제)
+        delete state.checks[medId];
+
+        saveState();
+        renderAll();
+    }
+
+    // =====================================================
+    // [9] 보안: XSS(크로스사이트 스크립팅) 방지
+    //
+    // 사용자가 입력한 텍스트를 그대로 innerHTML에 넣으면
+    // 악의적인 스크립트 코드가 실행될 수 있어요.
+    // escapeHtml()로 특수문자를 안전한 형태로 변환해요.
+    // =====================================================
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g,  '&amp;')
+            .replace(/</g,  '&lt;')
+            .replace(/>/g,  '&gt;')
+            .replace(/"/g,  '&quot;')
+            .replace(/'/g,  '&#039;');
+    }
+
+    // =====================================================
+    // [10] 고유 ID 생성
+    // 각 약마다 유일한 식별자가 필요해요.
+    // 현재 시간 + 랜덤 숫자로 사실상 중복 없는 ID를 만들어요.
+    // =====================================================
+    function generateId() {
+        return Date.now().toString(36) + Math.random().toString(36).slice(2);
+    }
+
+    // =====================================================
+    // [11] 모달 열기/닫기
+    // =====================================================
+
+    // 모달 열기
+    function openModal() {
+        document.getElementById('modal-overlay').classList.add('open');
+        // 약 이름 입력창에 자동으로 포커스 (바로 타이핑 가능)
+        setTimeout(() => document.getElementById('med-name').focus(), 300);
+    }
+
+    // 모달 닫기 + 폼 초기화
+    function closeModal() {
+        document.getElementById('modal-overlay').classList.remove('open');
+        document.getElementById('add-med-form').reset();  // 입력값 초기화
+
+        // 선택된 버튼들을 기본값으로 되돌려요
+        document.querySelectorAll('#time-options .option-btn').forEach(b => b.classList.remove('selected'));
+        document.querySelectorAll('#meal-options .option-btn').forEach(b => {
+            // "상관없음"만 기본 선택 상태로
+            b.classList.toggle('selected', b.dataset.value === '상관없음');
+        });
+        document.querySelectorAll('#interval-options .option-btn').forEach(b => {
+            // "6"(매 6시간)을 기본 선택 상태로
+            b.classList.toggle('selected', b.dataset.value === '6');
+        });
+
+        // 탭을 첫 번째(시간대 선택)로 되돌려요
+        switchTab('time');
+    }
+
+    // =====================================================
+    // [12] 탭 전환 함수
+    // =====================================================
+    let currentTab = 'time';  // 현재 활성 탭을 기억해요
+
+    function switchTab(tabName) {
+        currentTab = tabName;
+
+        // 탭 버튼: 클릭한 탭만 active 클래스 추가
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.classList.toggle('active', tab.dataset.tab === tabName);
+        });
+
+        // 탭 내용: 해당 탭만 보이게
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        document.getElementById(`tab-${tabName}`).classList.add('active');
+    }
+
+    // =====================================================
+    // [13] 이벤트 리스너 등록
+    //
+    // "이벤트 리스너" = 특정 동작(클릭, 제출 등)이 일어날 때
+    // 실행할 함수를 등록해두는 것이에요.
+    // =====================================================
+
+    // "약 추가하기" 버튼 → 모달 열기
+    document.getElementById('open-modal-btn').addEventListener('click', openModal);
+
+    // "취소" 버튼 → 모달 닫기
+    document.getElementById('cancel-btn').addEventListener('click', closeModal);
+
+    // 모달 바깥 어두운 배경 클릭 → 모달 닫기
+    document.getElementById('modal-overlay').addEventListener('click', function(e) {
+        // e.target이 오버레이 자신일 때만 닫아요 (모달 안쪽 클릭은 무시)
+        if (e.target === this) closeModal();
+    });
+
+    // 모달 박스 자체 클릭 시 이벤트가 오버레이로 전파되는 것을 막아요
+    document.getElementById('modal-box').addEventListener('click', e => e.stopPropagation());
+
+    // 탭 버튼들에 클릭 이벤트 등록
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+    });
+
+    // 시간대 옵션 버튼들 (아침/점심/저녁/자기 전) → 복수 선택 가능
+    document.querySelectorAll('#time-options .option-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            // toggle(): selected 있으면 제거, 없으면 추가 (토글)
+            btn.classList.toggle('selected');
+        });
+    });
+
+    // 식사 기준 버튼들 (식전/식후/상관없음) → 하나만 선택
+    document.querySelectorAll('#meal-options .option-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            // 모두 해제 후 클릭한 것만 선택
+            document.querySelectorAll('#meal-options .option-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+        });
+    });
+
+    // 간격 옵션 버튼들 (매 4/6/8/12시간) → 하나만 선택
+    document.querySelectorAll('#interval-options .option-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#interval-options .option-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+        });
+    });
+
+    // =====================================================
+    // [14] 폼 제출 (약 추가하기)
+    //
+    // submit 이벤트: 폼의 제출 버튼을 누르거나 엔터를 쳤을 때 발생해요
+    // =====================================================
+    document.getElementById('add-med-form').addEventListener('submit', function(e) {
+        e.preventDefault();  // 기본 동작(페이지 새로고침) 막기!
+
+        const name = document.getElementById('med-name').value.trim();  // 양끝 공백 제거
+        const memo = document.getElementById('med-memo').value.trim();
+
+        if (!name) {
+            alert('약 이름을 입력해주세요!');
+            return;
+        }
+
+        // 새 약 객체를 만들어요
+        const newMed = {
+            id: generateId(),
+            name: name,
+            memo: memo,
+            scheduleType: currentTab  // 현재 선택된 탭 (time 또는 interval)
+        };
+
+        if (currentTab === 'time') {
+            // 선택된 시간대 버튼들의 값을 모아요
+            const selectedTimes = [...document.querySelectorAll('#time-options .option-btn.selected')]
+                .map(b => b.dataset.value);
+
+            if (selectedTimes.length === 0) {
+                alert('복용 시간대를 최소 하나 선택해주세요!');
+                return;
+            }
+
+            const mealBtn = document.querySelector('#meal-options .option-btn.selected');
+
+            newMed.times       = selectedTimes;
+            newMed.mealRelation = mealBtn ? mealBtn.dataset.value : '상관없음';
+
+        } else {
+            // 선택된 간격 값을 숫자로 변환
+            const intervalBtn = document.querySelector('#interval-options .option-btn.selected');
+            newMed.intervalHours = intervalBtn ? parseInt(intervalBtn.dataset.value, 10) : 6;
+        }
+
+        // 약 목록 배열에 새 약 추가 (push = 배열 끝에 추가)
+        state.medications.push(newMed);
+        saveState();
+        renderAll();
+        closeModal();
+    });
+
+    // =====================================================
+    // [15] 앱 초기화 (페이지 로드 시 실행)
+    // =====================================================
+    loadState();  // 저장된 데이터 불러오기
+    renderAll();  // 초기 화면 그리기
+
+    // 1분마다 날짜를 확인해요. 자정이 넘어가면 체크가 자동으로 초기화돼요.
+    // setInterval(함수, 밀리초): 지정된 시간마다 함수를 반복 실행해요
+    setInterval(() => {
+        checkDayReset();
+        renderAll();
+    }, 60_000);  // 60_000ms = 60초 (숫자에 _ 넣어도 무시돼요 - 가독성용)
+</script>
+</body>
+</html>
